@@ -1,4 +1,5 @@
 import { diskStorage } from 'multer';
+import * as fs from 'fs-extra';
 
 const generateId = () =>
   Array(18)
@@ -12,6 +13,14 @@ const normalizeFileName = (req, file: Express.Multer.File, callback) => {
 };
 
 export const fileStorage = diskStorage({
-  destination: './uploads',
+  destination: (req, file, callback) => {
+    const userFullName = (req as any).user.fullName;
+    const uploadPath = `./uploads/${userFullName}`;
+    // Check if the directory exists and create it if it doesn't
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    callback(null, uploadPath);
+  },
   filename: normalizeFileName,
 });

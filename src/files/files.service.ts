@@ -4,7 +4,7 @@ import { FileEntity } from './entities/file.entity';
 import { Repository } from 'typeorm';
 import { FileType } from './entities/file.entity';
 import * as fs from 'fs-extra';
-import { join } from 'path';
+import { mainPath } from 'src/paths/mainPath';
 
 @Injectable()
 export class FilesService {
@@ -102,15 +102,40 @@ export class FilesService {
     return qb.softDelete().execute();
   }
 
-  async updateTextFile(filename: string, updatedText: string) {
+  async removeFilesFromDBAndFolder(req: Request) {
+    const qb = this.repository.createQueryBuilder('files');
+    const filesToDelete = await qb
+      .withDeleted()
+      .andWhere('files.deleteAt IS NOT NULL')
+      .getMany(); // Get the files to delete
+
+    if (filesToDelete.length > 0) {
+      for (const file of filesToDelete) {
+        const filePath = mainPath(file.fileName, req); // Construct the file path
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath); // Delete the file from the 'uploads' folder
+        }
+      }
+
+      // Perform a soft-delete for the records in the database
+      // await this.repository.softRemove(filesToDelete);
+      console.log(filesToDelete);
+      console.log('Files deleted from folder and database.');
+    } else {
+      console.log('No files found to delete.');
+    }
+  }
+
+  async updateTextFile(filename: string, updatedText: string, req: Request) {
     try {
-      const filePath = join(__dirname, '..', '..', 'uploads', filename);
+      const filePath = mainPath(filename, req);
 
       // Update the file content with the provided text
       const newText = updatedText;
 
       // Write the updated content back to the file
       await fs.writeFile(filePath, newText);
+      // this.removeFilesFromDBAndFolder(req);
 
       return { message: 'Text file updated successfully' };
     } catch (error) {
@@ -118,17 +143,17 @@ export class FilesService {
     }
   }
 
-  createFolder(body: { folderName: string }): string {
-    const { folderName } = body;
-    try {
-      const folderPath = join(__dirname, '..', '..', 'uploads', folderName);
-      fs.mkdirSync(folderPath);
-      return `Folder "${body.folderName}" created successfully.`;
-    } catch (error) {
-      throw new HttpException(
-        `Error creating folder: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
+  // createFolder(body: { folderName: string }, req: Request): string {
+  //   const { folderName } = body;
+  //   try {
+  //     const folderPath = mainPath(folderName, req);
+  //     fs.mkdirSync(folderPath);
+  //     return `Folder "${body.folderName}" created successfully.`;
+  //   } catch (error) {
+  //     throw new HttpException(
+  //       `Error creating folder: ${error.message}`,
+  //       HttpStatus.INTERNAL_SERVER_ERROR,
+  //     );
+  //   }
+  // }
 }

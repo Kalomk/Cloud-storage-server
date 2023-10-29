@@ -61,13 +61,14 @@ export class FilesController {
     // new ParseFilePipe({
     //   validators: [new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 })],
     // }),
+    @Req() req,
     @UploadedFile()
     file: Express.Multer.File,
     @UserId() userId: number,
   ) {
     const fileExtension = extname(file.originalname).toLowerCase();
     if (this.isVideoFile(fileExtension)) {
-      await this.ffmpeg.makeShortVAndThumbnail(file.filename);
+      await this.ffmpeg.makeShortVAndThumbnail(file.filename, req);
     }
 
     return this.filesService.create(file, userId);
@@ -78,7 +79,7 @@ export class FilesController {
     return videoExtensions.includes(fileExtension);
   }
   @Delete()
-  remove(@UserId() userId: number, @Query('ids') ids: string) {
+  remove(@UserId() userId: number, @Query('ids') ids: string, @Req() req) {
     return this.filesService.remove(userId, ids);
   }
 
@@ -86,11 +87,16 @@ export class FilesController {
   async updateTextFile(
     @Param('textFilename') textFilename: string,
     @Body() body: { text: string },
+    @Req() req,
   ) {
     try {
       const { text } = body;
       console.log(text);
-      const result = await this.filesService.updateTextFile(textFilename, text);
+      const result = await this.filesService.updateTextFile(
+        textFilename,
+        text,
+        req,
+      );
       return result;
     } catch (error) {
       return { message: 'Failed to update text file', error };

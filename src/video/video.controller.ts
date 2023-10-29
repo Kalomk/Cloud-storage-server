@@ -1,5 +1,6 @@
-import { Header, Res, Headers, Param, Get, Controller } from '@nestjs/common';
+import { Header, Res, Headers, Param, Controller, Get } from '@nestjs/common';
 import { VideoService } from './video.service';
+
 @Controller('video')
 export class VideoController {
   constructor(private videoService: VideoService) {}

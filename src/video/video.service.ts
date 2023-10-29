@@ -1,12 +1,27 @@
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { statSync, createReadStream } from 'fs';
 import { Response } from 'express';
+import { JwtService } from '@nestjs/jwt';
 import { join } from 'path';
+import { UserEntity } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class VideoService {
+  constructor(private readonly jwt: JwtService) {}
+
   async getVideoStream(fileName: string, headers, res: Response) {
-    const videoPath = join(__dirname, '..', '..', 'uploads', fileName);
+    const tokenRegex = /(?<=\btoken=)([^;]+)/;
+    const match = headers.cookie.match(tokenRegex);
+    const tokenValue = match[0];
+    const decode = this.jwt.decode(tokenValue) as UserEntity;
+    const videoPath = join(
+      __dirname,
+      '..',
+      '..',
+      'uploads',
+      decode.fullName,
+      fileName,
+    );
     const { size } = statSync(videoPath);
     const videoRange = headers.range;
     if (videoRange) {

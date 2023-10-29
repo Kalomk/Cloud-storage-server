@@ -1,6 +1,7 @@
 import { Injectable, ForbiddenException, Body } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { JwtService } from '@nestjs/jwt';
+
 import * as bcrypt from 'bcrypt';
 import { AuthVaildateLogin } from './dto/AuthValidateLogin';
 import { AuthVaildateSingUp } from './dto/AuthValidateSignUp';
@@ -26,12 +27,19 @@ export class AuthService {
       throw new ForbiddenException('Credential error');
     }
     console.log('login');
-    return (await this.signToken(user.id, user.email)).access_token;
+    return (await this.signToken(user.id, user.email, user.fullName))
+      .access_token;
   }
 
   async register(dto: AuthVaildateSingUp) {
+    const existingUser = await this.usersService.findByMail(dto.email);
+
+    if (existingUser) {
+      throw new ForbiddenException('User already exists');
+    }
     const saltAndRound = 10;
     const hash = await bcrypt.hash(dto.password, saltAndRound);
+
     try {
       const userData = await this.usersService.create({
         email: dto.email,
@@ -39,9 +47,9 @@ export class AuthService {
         fullName: dto.fullName,
       });
 
-      return {
-        token: (await this.signToken(userData.id, userData.email)).access_token,
-      };
+      return (
+        await this.signToken(userData.id, userData.email, userData.fullName)
+      ).access_token;
     } catch (err) {
       console.log(err);
       throw new ForbiddenException('Auth error');
@@ -51,10 +59,12 @@ export class AuthService {
   async signToken(
     userId: number,
     email: string,
+    fullName: string,
   ): Promise<{ access_token: string }> {
     const payload = {
       sub: userId,
       email,
+      fullName,
     };
     const token = await this.jwtService.signAsync(payload, {
       expiresIn: '15m',
