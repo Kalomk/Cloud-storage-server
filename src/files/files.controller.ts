@@ -5,8 +5,6 @@ import {
   Body,
   Delete,
   UploadedFile,
-  ParseFilePipe,
-  MaxFileSizeValidator,
   Get,
   UseGuards,
   UseInterceptors,
@@ -16,13 +14,14 @@ import {
 } from '@nestjs/common';
 import { FilesService } from './files.service';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { fileStorage } from './storage';
+import { fileStorage, memorytorage, normalizeFileName } from './storage';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { JWTGuard } from 'src/auth/guard';
 import { UserId } from 'src/decorators/user-id.decorator';
 import { FileType } from './entities/file.entity';
 import { FfmpegService } from 'src/ffmpeg/ffmpeg.service';
 import { extname } from 'path';
+import { SharpService } from 'src/sharp/sharp.service';
 
 @Controller('files')
 @ApiTags('files')
@@ -32,6 +31,7 @@ export class FilesController {
   constructor(
     private readonly filesService: FilesService,
     private readonly ffmpeg: FfmpegService,
+    private readonly sharp: SharpService,
   ) {}
 
   @Get('all')
@@ -42,7 +42,7 @@ export class FilesController {
   @Post()
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: fileStorage,
+      storage: memorytorage,
     }),
   )
   @ApiConsumes('multipart/form-data')
@@ -67,16 +67,35 @@ export class FilesController {
     @UserId() userId: number,
   ) {
     const fileExtension = extname(file.originalname).toLowerCase();
+    const normalizeOriginalName = normalizeFileName(file);
+
+    const savedFile = await this.filesService.create(
+      normalizeOriginalName,
+      file,
+      userId,
+    );
+
     if (this.isVideoFile(fileExtension)) {
-      await this.ffmpeg.makeShortVAndThumbnail(file.filename, req);
+      await this.ffmpeg.makeShortVAndThumbnail(normalizeOriginalName, req);
+    }
+    if (this.isImageFile(fileExtension)) {
+      await this.sharp.resizeAndOptimizeImage(file, req, normalizeOriginalName);
+
+      return savedFile;
     }
 
-    return this.filesService.create(file, userId);
+    await fileStorage(req, normalizeOriginalName, file);
+    return savedFile;
   }
 
   private isVideoFile(fileExtension: string): boolean {
     const videoExtensions = ['.mp4', '.avi', '.mkv', '.ts', '.mpeg'];
     return videoExtensions.includes(fileExtension);
+  }
+
+  private isImageFile(fileExtension: string): boolean {
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp'];
+    return imageExtensions.includes(fileExtension);
   }
   @Delete()
   remove(@UserId() userId: number, @Query('ids') ids: string, @Req() req) {

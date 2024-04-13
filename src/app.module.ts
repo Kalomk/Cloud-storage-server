@@ -11,6 +11,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { AuthModule } from './auth/auth.module';
 import { FfmpegModule } from './ffmpeg/ffmpeg.module';
 import { VideoModule } from './video/video.module';
+import { SharpModule } from './sharp/sharp.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { VideoModule } from './video/video.module';
     FilesModule,
     AuthModule,
     FfmpegModule,
+    SharpModule,
     VideoModule,
   ],
   controllers: [AppController],

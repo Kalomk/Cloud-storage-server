@@ -79,9 +79,9 @@ export class FilesService {
     return qb.getMany();
   }
 
-  create(file: Express.Multer.File, userId: number) {
+  create(fileName: string, file: Express.Multer.File, userId: number) {
     return this.repository.save({
-      fileName: file.filename,
+      fileName: fileName,
       originalName: file.originalname,
       mimetype: file.mimetype,
       size: file.size,

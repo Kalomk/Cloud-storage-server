@@ -1,4 +1,4 @@
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import * as fs from 'fs-extra';
 
 const generateId = () =>
@@ -7,20 +7,24 @@ const generateId = () =>
     .map(() => Math.round(Math.random() * 16).toString(16))
     .join('');
 
-const normalizeFileName = (req, file: Express.Multer.File, callback) => {
+export const normalizeFileName = (file: Express.Multer.File) => {
   const fileExtName = file.originalname.split('.').pop();
-  callback(null, `${generateId()}.${fileExtName}`);
+  return `${generateId()}.${fileExtName}`;
 };
 
-export const fileStorage = diskStorage({
-  destination: (req, file, callback) => {
-    const userFullName = (req as any).user.fullName;
-    const uploadPath = `./uploads/${userFullName}`;
-    // Check if the directory exists and create it if it doesn't
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    callback(null, uploadPath);
-  },
-  filename: normalizeFileName,
-});
+export const fileStorage = async (
+  req: Request,
+  fileName: string,
+  file: Express.Multer.File,
+) => {
+  const userFullName = (req as any).user.fullName;
+  const uploadPath = `./uploads/${userFullName}`;
+  // Check if the directory exists and create it if it doesn't
+  if (!fs.existsSync(uploadPath)) {
+    fs.mkdirSync(uploadPath, { recursive: true });
+  }
+  const filePath = `${uploadPath}/${fileName}`;
+  await fs.writeFile(filePath, file.buffer);
+};
+
+export const memorytorage = memoryStorage();
